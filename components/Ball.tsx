@@ -1,12 +1,18 @@
 import Animated, {
 	useFrameCallback,
 	useAnimatedStyle,
+	useAnimatedReaction,
 } from 'react-native-reanimated';
 import { ballSpeed, boardHeight, width, ballRadius } from '@/constants/Game';
+import { useGameContext } from '@/contexts/Game';
+import { runOnJS } from 'react-native-reanimated';
 
 export default function Ball({ ball }: { ball: any }) {
-	useFrameCallback((frameInfo) => {
+	const { isUserTurn, onEndTurn } = useGameContext();
+
+	const frameCallback = useFrameCallback((frameInfo) => {
 		let { x, y, r, dx, dy } = ball.value;
+		console.log(frameInfo);
 		const delta = (frameInfo.timeSincePreviousFrame || 0) / 1000;
 		x += dx * delta * ballSpeed;
 		y += dy * delta * ballSpeed;
@@ -20,6 +26,7 @@ export default function Ball({ ball }: { ball: any }) {
 		if (y > boardHeight - r) {
 			dy *= -1;
 			y = boardHeight - r;
+			onEndTurn!();
 		}
 
 		if (x > width - r) {
@@ -33,7 +40,14 @@ export default function Ball({ ball }: { ball: any }) {
 		}
 
 		ball.value = { ...ball.value, x, y, dx, dy };
-	});
+	}, false);
+
+	const startFrameCallback = (val: boolean) => frameCallback.setActive(val);
+
+	useAnimatedReaction(
+		() => isUserTurn!.value,
+		(val) => runOnJS(startFrameCallback)(!val)
+	);
 
 	const ballStyle = useAnimatedStyle(() => {
 		const { x, y, dx, dy, r } = ball.value;
